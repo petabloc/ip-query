@@ -424,10 +424,3 @@ aws logs start-query \
   --query-string "fields @timestamp | limit 1"
 ```
 
-### Security Best Practices
-
-- **Principle of Least Privilege**: Use resource-specific policies when possible
-- **Temporary Credentials**: Consider using IAM roles with temporary credentials
-- **Access Logging**: Enable CloudTrail to audit tool usage
-- **Key Rotation**: Regularly rotate access keys
-- **Network Security**: Use VPC endpoints for CloudWatch Logs access when possible
