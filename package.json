@@ -1,6 +1,6 @@
 {
   "name": "ip-query",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "VPC Flow Log IP analysis tool with threat intelligence",
   "main": "dist/cli.js",
   "type": "module",
