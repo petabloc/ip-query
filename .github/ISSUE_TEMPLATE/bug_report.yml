@@ -1,0 +1,103 @@
+name: Bug Report
+description: Report a bug or issue with the IP Query Tool
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the information below to help us diagnose and fix the issue.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: What version of ip-query are you using?
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: AWS Environment
+      description: Which AWS environment are you using?
+      options:
+        - AWS Commercial
+        - AWS GovCloud
+        - Both
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: aws-region
+    attributes:
+      label: AWS Region
+      description: Which AWS region are you using?
+      placeholder: "us-east-1"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the bug
+      placeholder: Describe the bug...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+      placeholder: Describe what you expected...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Run command '...'
+        2. With input file '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: error-output
+    attributes:
+      label: Error output or logs
+      description: Please copy and paste any relevant error output or logs
+      render: shell
+      placeholder: Paste error output here...
+
+  - type: input
+    id: nodejs-version
+    attributes:
+      label: Node.js version
+      description: What version of Node.js are you using?
+      placeholder: "20.x"
+    validations:
+      required: true
+
+  - type: input
+    id: operating-system
+    attributes:
+      label: Operating System
+      description: What operating system are you using?
+      placeholder: "Ubuntu 22.04"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add any other context about the problem here
+      placeholder: Any additional information...

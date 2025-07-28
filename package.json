@@ -1,0 +1,65 @@
+{
+  "name": "ip-query",
+  "version": "1.0.0",
+  "description": "VPC Flow Log IP analysis tool with threat intelligence",
+  "main": "dist/cli.js",
+  "type": "module",
+  "bin": {
+    "ip-query": "./dist/cli.js"
+  },
+  "scripts": {
+    "start": "tsx src/cli.ts",
+    "build": "tsc",
+    "dev": "tsx watch src/cli.ts",
+    "lint": "eslint src/**/*.ts tests/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts tests/**/*.ts --fix",
+    "format": "prettier --write src/**/*.ts tests/**/*.ts",
+    "format:check": "prettier --check src/**/*.ts tests/**/*.ts",
+    "test": "jest",
+    "test:lint": "npm run lint && npm run format:check",
+    "install-global": "npm run build && npm install -g .",
+    "uninstall-global": "npm uninstall -g ip-query"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cloudwatch-logs": "^3.705.0",
+    "@aws-sdk/client-ec2": "^3.705.0",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.0.5",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.19.9",
+    "@typescript-eslint/eslint-plugin": "^8.38.0",
+    "@typescript-eslint/parser": "^8.38.0",
+    "eslint": "^8.0.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.3",
+    "jest": "^29.0.0",
+    "prettier": "^3.6.2",
+    "ts-jest": "^29.4.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "aws",
+    "vpc",
+    "flow-logs",
+    "ip-analysis",
+    "threat-intelligence",
+    "security",
+    "govcloud",
+    "cybersecurity",
+    "network-analysis",
+    "waf-blocklist"
+  ],
+  "author": "Petabloc",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/petabloc/ip-query.git"
+  },
+  "bugs": {
+    "url": "https://github.com/petabloc/ip-query/issues"
+  },
+  "homepage": "https://github.com/petabloc/ip-query#readme"
+}

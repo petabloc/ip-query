@@ -1,0 +1,23 @@
+# Sample timestamps for ip-query testing
+# Lines starting with # are comments and will be ignored
+
+# ISO 8601 format
+2025-07-26T00:49:16.2146161Z
+2025-07-26T00:55:08.4769206Z
+2025-07-26T00:51:58.3690651Z
+
+# Simple datetime format
+2025-07-26 07:01:03
+2025-07-26 07:02:18
+2025-07-26 07:01:41
+
+# Unix timestamps
+1753490956
+1753491308
+1753491701
+
+# More ISO timestamps
+2025-07-26T07:40:24.0319782Z
+2025-07-26T07:40:42.6485752Z
+2025-07-26T07:43:03.939922Z
+2025-07-26T08:24:54.4754158Z

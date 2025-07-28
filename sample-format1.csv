@@ -1,0 +1,11 @@
+# Format 1: Single column of timestamps (requires --time-in-seconds)
+# Use: ip-query --file-in sample-format1.csv --time-in-seconds 5
+
+2025-07-26T00:49:16.2146161Z
+2025-07-26T00:55:08.4769206Z
+2025-07-26T00:51:58.3690651Z
+2025-07-26 07:01:03
+2025-07-26 07:02:18
+1753490956
+1753491308
+2025-07-26T08:24:54.4754158Z
