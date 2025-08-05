@@ -68,7 +68,10 @@ export class IPQueryAnalyzer {
     this.targetIP = options.targetIP;
     this.outputFile = options.outputFile;
     // Let AWS config detection handle region defaulting
-    this.vpcAnalyzer = new VPCFlowLogAnalyzer(region, { verbose: this.verbose, targetIP: this.targetIP });
+    this.vpcAnalyzer = new VPCFlowLogAnalyzer(region, {
+      verbose: this.verbose,
+      targetIP: this.targetIP,
+    });
     this.threatChecker = new ThreatIntelligenceChecker({ verbose: this.verbose });
   }
 
@@ -189,11 +192,11 @@ export class IPQueryAnalyzer {
 
     for (const [timeRange, records] of flowLogResults.entries()) {
       let filteredRecords = records;
-      
+
       // Filter for specific IP if targetIP is provided
       if (this.targetIP) {
-        filteredRecords = records.filter(record => 
-          record.srcaddr === this.targetIP || record.dstaddr === this.targetIP
+        filteredRecords = records.filter(
+          record => record.srcaddr === this.targetIP || record.dstaddr === this.targetIP
         );
       }
 
@@ -213,7 +216,7 @@ export class IPQueryAnalyzer {
       });
 
       totalRecords += filteredRecords.length;
-      
+
       if (this.targetIP) {
         console.log(
           `   • ${timeRange}: ${filteredRecords.length} records containing IP ${this.targetIP} (out of ${records.length} total), ${uniqueIPs.length} unique IPs, ${publicIPs.length} public IPs, ${privateIPs.length} private IPs`
@@ -249,7 +252,13 @@ export class IPQueryAnalyzer {
 
     let threatResults = new Map();
     let threatStats = { totalChecked: 0, maliciousCount: 0, cleanCount: 0, topSources: new Map() };
-    let wafBlocklist: any = { highConfidence: [], mediumConfidence: [], lowConfidence: [], allFormatted: [], copyPasteReady: '' };
+    let wafBlocklist: any = {
+      highConfidence: [],
+      mediumConfidence: [],
+      lowConfidence: [],
+      allFormatted: [],
+      copyPasteReady: '',
+    };
 
     // Step 5: Threat Intelligence Analysis (skip for IP searches)
     if (!this.targetIP) {
@@ -268,7 +277,7 @@ export class IPQueryAnalyzer {
     }
 
     // Step 6: Save results to files
-    const csvFilename = await this.saveResultsToFiles(wafBlocklist, timeRangeResults, allPublicIPs, allPrivateIPs);
+    const csvFilename = await this.saveResultsToFiles(wafBlocklist, timeRangeResults);
 
     // Compile final results
     const results: AnalysisResults = {
@@ -351,7 +360,11 @@ export class IPQueryAnalyzer {
   /**
    * Display IP search results focused on flow log data
    */
-  private displayIPSearchResults(results: AnalysisResults, timeRangeResults: Map<any, any>, csvFilename?: string): void {
+  private displayIPSearchResults(
+    results: AnalysisResults,
+    timeRangeResults: Map<any, any>,
+    csvFilename?: string
+  ): void {
     console.log('\n' + '='.repeat(60));
     console.log('IP SEARCH RESULTS');
     console.log('='.repeat(60));
@@ -365,16 +378,20 @@ export class IPQueryAnalyzer {
     if (results.summary.totalRecords > 0) {
       console.log(`\nFlow Log Records:`);
       console.log('='.repeat(40));
-      
+
       let recordCount = 0;
       for (const [timeRange, data] of timeRangeResults.entries()) {
         if (data.rawRecords && data.rawRecords.length > 0) {
           console.log(`\nTime Range: ${timeRange}`);
           console.log(`Records: ${data.rawRecords.length}`);
-          console.log(`Timestamp,Source IP,Destination IP,Source Port,Destination Port,Protocol,Action`);
-          
+          console.log(
+            `Timestamp,Source IP,Destination IP,Source Port,Destination Port,Protocol,Action`
+          );
+
           for (const record of data.rawRecords) {
-            console.log(`${record.timestamp},${record.srcaddr},${record.dstaddr},${record.srcport},${record.dstport},${record.protocol},${record.action}`);
+            console.log(
+              `${record.timestamp},${record.srcaddr},${record.dstaddr},${record.srcport},${record.dstport},${record.protocol},${record.action}`
+            );
             recordCount++;
           }
         }
@@ -386,7 +403,7 @@ export class IPQueryAnalyzer {
       } else {
         console.log(`Full results automatically exported to CSV file (AWS format)`);
       }
-      
+
       if (this.outputFile) {
         console.log(`Additional detailed results saved to: ${this.outputFile}`);
       }
@@ -402,7 +419,10 @@ export class IPQueryAnalyzer {
   /**
    * Save results to files
    */
-  private async saveResultsToFiles(wafBlocklist: any, timeRangeResults: Map<any, any>, allPublicIPs?: string[], allPrivateIPs?: string[]): Promise<string | undefined> {
+  private async saveResultsToFiles(
+    wafBlocklist: any,
+    timeRangeResults: Map<any, any>
+  ): Promise<string | undefined> {
     try {
       const fs = await import('fs/promises');
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -425,7 +445,7 @@ export class IPQueryAnalyzer {
       // Save detailed results if output file is specified
       if (this.outputFile) {
         let outputContent = '';
-        
+
         // Header information
         outputContent += `IP Query Tool Analysis Results\n`;
         outputContent += `Generated: ${new Date().toISOString()}\n`;
@@ -440,16 +460,16 @@ export class IPQueryAnalyzer {
           outputContent += `Records: ${data.records}\n`;
           outputContent += `Public IPs: ${data.publicIPs.join(', ')}\n`;
           outputContent += `Private IPs: ${data.privateIPs.join(', ')}\n`;
-          
+
           if (data.rawRecords && data.rawRecords.length > 0) {
             outputContent += `\nFlow Log Records:\n`;
             outputContent += `Timestamp,Source IP,Destination IP,Source Port,Destination Port,Protocol,Action\n`;
-            
+
             for (const record of data.rawRecords) {
               outputContent += `${record.timestamp},${record.srcaddr},${record.dstaddr},${record.srcport},${record.dstport},${record.protocol},${record.action}\n`;
             }
           }
-          
+
           outputContent += `\n${'='.repeat(80)}\n\n`;
         }
 
@@ -470,13 +490,13 @@ export class IPQueryAnalyzer {
    */
   private generateAWSStyleCSV(timeRangeResults: Map<any, any>): string {
     let csvContent = '';
-    
+
     // AWS-style header with all VPC Flow Log fields
     const headers = [
       '@timestamp',
       '@message',
       'version',
-      'account-id', 
+      'account-id',
       'interface-id',
       'srcaddr',
       'dstaddr',
@@ -488,13 +508,13 @@ export class IPQueryAnalyzer {
       'windowstart',
       'windowend',
       'action',
-      'flowlogstatus'
+      'flowlogstatus',
     ];
-    
+
     csvContent += headers.join(',') + '\n';
-    
+
     // Process all records from all time ranges
-    for (const [timeRange, data] of timeRangeResults.entries()) {
+    for (const [, data] of timeRangeResults.entries()) {
       if (data.rawRecords && data.rawRecords.length > 0) {
         for (const record of data.rawRecords) {
           const row = [
@@ -513,13 +533,13 @@ export class IPQueryAnalyzer {
             `"${record.windowstart || ''}"`,
             `"${record.windowend || ''}"`,
             `"${record.action || ''}"`,
-            `"${record.flowlogstatus || ''}"`
+            `"${record.flowlogstatus || ''}"`,
           ];
           csvContent += row.join(',') + '\n';
         }
       }
     }
-    
+
     return csvContent;
   }
 
@@ -543,7 +563,7 @@ export class IPQueryAnalyzer {
       record['account-id'] || record.account_id || '',
       record['interface-id'] || record.interface_id || '',
       record.srcaddr || '',
-      record.dstaddr || '', 
+      record.dstaddr || '',
       record.srcport || '',
       record.dstport || '',
       record.protocol || '',
@@ -552,7 +572,7 @@ export class IPQueryAnalyzer {
       record.windowstart || '',
       record.windowend || '',
       record.action || '',
-      record.flowlogstatus || ''
+      record.flowlogstatus || '',
     ];
     return fields.join(' ');
   }

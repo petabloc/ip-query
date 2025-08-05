@@ -92,7 +92,7 @@ export class VPCFlowLogAnalyzer {
   async queryFlowLogs(query: VPCFlowLogQuery): Promise<FlowLogRecord[]> {
     // For IP searches with very large time ranges, break into smaller chunks to avoid limits
     // Only paginate for queries > 24 hours to allow normal multi-hour queries to work
-    if (this.targetIP && (query.endTime - query.startTime) > 86400) {
+    if (this.targetIP && query.endTime - query.startTime > 86400) {
       return await this.queryFlowLogsWithPagination(query);
     } else {
       return await this.querySingleTimeRange(query);
@@ -115,7 +115,7 @@ export class VPCFlowLogAnalyzer {
       // VPC Flow Logs have fields like: version, account-id, interface-id, srcaddr, dstaddr, srcport, dstport, protocol, packets, bytes, windowstart, windowend, action, flowlogstatus
       // For IP searches, filter directly in the query for better performance and get more results
       let insights_query;
-      
+
       if (this.targetIP) {
         // IP-specific query with higher limit - client-side filtering will handle IP matching
         insights_query = `
@@ -185,20 +185,22 @@ export class VPCFlowLogAnalyzer {
       }
 
       const allRecords = this.parseQueryResults(results.results || []);
-      
+
       // Apply client-side IP filtering if targetIP is specified
       if (this.targetIP) {
-        const filteredRecords = allRecords.filter(record => 
-          record.srcaddr === this.targetIP || record.dstaddr === this.targetIP
+        const filteredRecords = allRecords.filter(
+          record => record.srcaddr === this.targetIP || record.dstaddr === this.targetIP
         );
-        
+
         if (this.verbose) {
-          console.log(`   • IP filtering: ${filteredRecords.length} records containing IP ${this.targetIP} (out of ${allRecords.length} total)`);
+          console.log(
+            `   • IP filtering: ${filteredRecords.length} records containing IP ${this.targetIP} (out of ${allRecords.length} total)`
+          );
         }
-        
+
         return filteredRecords;
       }
-      
+
       return allRecords;
     } catch (error) {
       console.error(
@@ -217,31 +219,35 @@ export class VPCFlowLogAnalyzer {
     const chunkSize = 3600; // 1 hour chunks
     const totalDuration = query.endTime - query.startTime;
     const numChunks = Math.ceil(totalDuration / chunkSize);
-    
+
     if (this.verbose) {
       console.log(`   • Large time range detected (${totalDuration}s)`);
       console.log(`   • Breaking into ${numChunks} chunks of ${chunkSize}s each`);
     }
 
     for (let i = 0; i < numChunks; i++) {
-      const chunkStart = query.startTime + (i * chunkSize);
-      const chunkEnd = Math.min(query.startTime + ((i + 1) * chunkSize), query.endTime);
-      
+      const chunkStart = query.startTime + i * chunkSize;
+      const chunkEnd = Math.min(query.startTime + (i + 1) * chunkSize, query.endTime);
+
       const chunkQuery: VPCFlowLogQuery = {
         ...query,
         startTime: chunkStart,
-        endTime: chunkEnd
+        endTime: chunkEnd,
       };
 
       if (this.verbose) {
-        console.log(`   • Processing chunk ${i + 1}/${numChunks}: ${new Date(chunkStart * 1000).toISOString()} to ${new Date(chunkEnd * 1000).toISOString()}`);
+        console.log(
+          `   • Processing chunk ${i + 1}/${numChunks}: ${new Date(chunkStart * 1000).toISOString()} to ${new Date(chunkEnd * 1000).toISOString()}`
+        );
       }
 
       const chunkResults = await this.querySingleTimeRange(chunkQuery);
       allResults.push(...chunkResults);
 
       if (this.verbose) {
-        console.log(`   • Chunk ${i + 1} returned ${chunkResults.length} records (total so far: ${allResults.length})`);
+        console.log(
+          `   • Chunk ${i + 1} returned ${chunkResults.length} records (total so far: ${allResults.length})`
+        );
       }
 
       // Small delay between queries to avoid rate limiting
@@ -251,7 +257,9 @@ export class VPCFlowLogAnalyzer {
     }
 
     if (this.verbose) {
-      console.log(`   • Pagination complete: ${allResults.length} total records across ${numChunks} chunks`);
+      console.log(
+        `   • Pagination complete: ${allResults.length} total records across ${numChunks} chunks`
+      );
     }
 
     return allResults;

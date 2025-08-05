@@ -18,8 +18,8 @@ interface CLIArgs {
   'time-in-seconds'?: string;
   'time-from'?: string;
   'time-to'?: string;
-  'ip'?: string;
-  'output'?: string;
+  ip?: string;
+  output?: string;
   region?: string;
   configure?: boolean;
   verbose?: boolean;
@@ -115,8 +115,8 @@ class IPQueryCLI {
           'time-in-seconds': { type: 'string' },
           'time-from': { type: 'string' },
           'time-to': { type: 'string' },
-          'ip': { type: 'string' },
-          'output': { type: 'string' },
+          ip: { type: 'string' },
+          output: { type: 'string' },
           region: { type: 'string' },
           configure: { type: 'boolean' },
           verbose: { type: 'boolean' },
@@ -157,10 +157,10 @@ class IPQueryCLI {
 
     // Validate and set up AWS region
     const region = await this.validateAndSetupRegion(args.region);
-    this.analyzer = new IPQueryAnalyzer(region, { 
+    this.analyzer = new IPQueryAnalyzer(region, {
       verbose: args.verbose || false,
       targetIP: args.ip,
-      outputFile: args.output
+      outputFile: args.output,
     });
 
     if (hasFileInput) {
@@ -180,11 +180,11 @@ class IPQueryCLI {
 
     // Parse time window
     const timeWindow = parseInt(args['time-in-seconds']);
-    
+
     if (isNaN(timeWindow) || timeWindow < 1) {
       throw new Error('--time-in-seconds must be at least 1 second');
     }
-    
+
     // Only apply time limit for general analysis, no limit for IP search
     if (!args.ip && timeWindow > 3600) {
       throw new Error('--time-in-seconds must be between 1 and 3600 (1 hour) for general analysis');
@@ -222,7 +222,7 @@ class IPQueryCLI {
     if (timeDiff < 1) {
       throw new Error('Minimum time span is 1 second');
     }
-    
+
     // Only apply time limit for general analysis, no limit for IP search
     if (!args.ip && timeDiff > 3600) {
       throw new Error('Maximum time span is 1 hour (3600 seconds) for general analysis');
@@ -235,11 +235,15 @@ class IPQueryCLI {
     };
 
     if (args.ip) {
-      console.log(`Searching for IP ${args.ip} in time range: ${args['time-from']} to ${args['time-to']} (${timeDiff}s)`);
+      console.log(
+        `Searching for IP ${args.ip} in time range: ${args['time-from']} to ${args['time-to']} (${timeDiff}s)`
+      );
     } else {
-      console.log(`Analyzing time range: ${args['time-from']} to ${args['time-to']} (${timeDiff}s)`);
+      console.log(
+        `Analyzing time range: ${args['time-from']} to ${args['time-to']} (${timeDiff}s)`
+      );
     }
-    
+
     const results = await this.analyzer!.analyzeTimeRange(timeRange);
     await this.outputResults(results);
   }
