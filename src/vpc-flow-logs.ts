@@ -37,6 +37,7 @@ export interface VPCFlowLogQuery {
 
 export interface VPCAnalyzerOptions {
   verbose?: boolean;
+  targetIP?: string;
 }
 
 export class VPCFlowLogAnalyzer {
@@ -44,9 +45,11 @@ export class VPCFlowLogAnalyzer {
   private logsClient: CloudWatchLogsClient;
   private environment: AWSEnvironment;
   private verbose: boolean;
+  private targetIP?: string;
 
   constructor(region?: string, options: VPCAnalyzerOptions = {}) {
     this.verbose = options.verbose || false;
+    this.targetIP = options.targetIP;
 
     // Detect AWS environment (commercial or GovCloud)
     this.environment = detectAWSEnvironment(region);
@@ -84,9 +87,22 @@ export class VPCFlowLogAnalyzer {
   }
 
   /**
-   * Query VPC Flow Logs for a specific time range
+   * Query VPC Flow Logs for a specific time range with pagination support
    */
   async queryFlowLogs(query: VPCFlowLogQuery): Promise<FlowLogRecord[]> {
+    // For IP searches with very large time ranges, break into smaller chunks to avoid limits
+    // Only paginate for queries > 24 hours to allow normal multi-hour queries to work
+    if (this.targetIP && query.endTime - query.startTime > 86400) {
+      return await this.queryFlowLogsWithPagination(query);
+    } else {
+      return await this.querySingleTimeRange(query);
+    }
+  }
+
+  /**
+   * Query a single time range (original implementation)
+   */
+  private async querySingleTimeRange(query: VPCFlowLogQuery): Promise<FlowLogRecord[]> {
     const logGroupName = query.logGroupName || (await this.getDefaultLogGroup());
 
     if (!logGroupName) {
@@ -97,13 +113,26 @@ export class VPCFlowLogAnalyzer {
     try {
       // CloudWatch Logs Insights query for VPC Flow Logs
       // VPC Flow Logs have fields like: version, account-id, interface-id, srcaddr, dstaddr, srcport, dstport, protocol, packets, bytes, windowstart, windowend, action, flowlogstatus
-      // Try different approaches since VPC Flow Logs might be in different formats
-      const insights_query = `
-        fields @timestamp, @message
-        | filter @timestamp >= ${query.startTime * 1000} and @timestamp < ${query.endTime * 1000}
-        | sort @timestamp desc
-        | limit 1000
-      `.trim();
+      // For IP searches, filter directly in the query for better performance and get more results
+      let insights_query;
+
+      if (this.targetIP) {
+        // IP-specific query with higher limit - client-side filtering will handle IP matching
+        insights_query = `
+          fields @timestamp, @message
+          | filter @timestamp >= ${query.startTime * 1000} and @timestamp < ${query.endTime * 1000}
+          | sort @timestamp desc
+          | limit 10000
+        `.trim();
+      } else {
+        // General query with standard limit
+        insights_query = `
+          fields @timestamp, @message
+          | filter @timestamp >= ${query.startTime * 1000} and @timestamp < ${query.endTime * 1000}
+          | sort @timestamp desc
+          | limit 1000
+        `.trim();
+      }
 
       if (this.verbose) {
         console.log(`   • Using query: ${insights_query}`);
@@ -155,7 +184,24 @@ export class VPCFlowLogAnalyzer {
         }
       }
 
-      return this.parseQueryResults(results.results || []);
+      const allRecords = this.parseQueryResults(results.results || []);
+
+      // Apply client-side IP filtering if targetIP is specified
+      if (this.targetIP) {
+        const filteredRecords = allRecords.filter(
+          record => record.srcaddr === this.targetIP || record.dstaddr === this.targetIP
+        );
+
+        if (this.verbose) {
+          console.log(
+            `   • IP filtering: ${filteredRecords.length} records containing IP ${this.targetIP} (out of ${allRecords.length} total)`
+          );
+        }
+
+        return filteredRecords;
+      }
+
+      return allRecords;
     } catch (error) {
       console.error(
         `Error querying flow logs for time range ${query.startTime}-${query.endTime}:`,
@@ -163,6 +209,60 @@ export class VPCFlowLogAnalyzer {
       );
       return [];
     }
+  }
+
+  /**
+   * Query VPC Flow Logs with pagination for large time ranges
+   */
+  private async queryFlowLogsWithPagination(query: VPCFlowLogQuery): Promise<FlowLogRecord[]> {
+    const allResults: FlowLogRecord[] = [];
+    const chunkSize = 3600; // 1 hour chunks
+    const totalDuration = query.endTime - query.startTime;
+    const numChunks = Math.ceil(totalDuration / chunkSize);
+
+    if (this.verbose) {
+      console.log(`   • Large time range detected (${totalDuration}s)`);
+      console.log(`   • Breaking into ${numChunks} chunks of ${chunkSize}s each`);
+    }
+
+    for (let i = 0; i < numChunks; i++) {
+      const chunkStart = query.startTime + i * chunkSize;
+      const chunkEnd = Math.min(query.startTime + (i + 1) * chunkSize, query.endTime);
+
+      const chunkQuery: VPCFlowLogQuery = {
+        ...query,
+        startTime: chunkStart,
+        endTime: chunkEnd,
+      };
+
+      if (this.verbose) {
+        console.log(
+          `   • Processing chunk ${i + 1}/${numChunks}: ${new Date(chunkStart * 1000).toISOString()} to ${new Date(chunkEnd * 1000).toISOString()}`
+        );
+      }
+
+      const chunkResults = await this.querySingleTimeRange(chunkQuery);
+      allResults.push(...chunkResults);
+
+      if (this.verbose) {
+        console.log(
+          `   • Chunk ${i + 1} returned ${chunkResults.length} records (total so far: ${allResults.length})`
+        );
+      }
+
+      // Small delay between queries to avoid rate limiting
+      if (i < numChunks - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+
+    if (this.verbose) {
+      console.log(
+        `   • Pagination complete: ${allResults.length} total records across ${numChunks} chunks`
+      );
+    }
+
+    return allResults;
   }
 
   /**
