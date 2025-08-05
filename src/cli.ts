@@ -18,6 +18,8 @@ interface CLIArgs {
   'time-in-seconds'?: string;
   'time-from'?: string;
   'time-to'?: string;
+  'ip'?: string;
+  'output'?: string;
   region?: string;
   configure?: boolean;
   verbose?: boolean;
@@ -113,6 +115,8 @@ class IPQueryCLI {
           'time-in-seconds': { type: 'string' },
           'time-from': { type: 'string' },
           'time-to': { type: 'string' },
+          'ip': { type: 'string' },
+          'output': { type: 'string' },
           region: { type: 'string' },
           configure: { type: 'boolean' },
           verbose: { type: 'boolean' },
@@ -153,7 +157,11 @@ class IPQueryCLI {
 
     // Validate and set up AWS region
     const region = await this.validateAndSetupRegion(args.region);
-    this.analyzer = new IPQueryAnalyzer(region, { verbose: args.verbose || false });
+    this.analyzer = new IPQueryAnalyzer(region, { 
+      verbose: args.verbose || false,
+      targetIP: args.ip,
+      outputFile: args.output
+    });
 
     if (hasFileInput) {
       await this.runFileInputMode(args);
@@ -172,8 +180,14 @@ class IPQueryCLI {
 
     // Parse time window
     const timeWindow = parseInt(args['time-in-seconds']);
-    if (isNaN(timeWindow) || timeWindow < 1 || timeWindow > 3600) {
-      throw new Error('--time-in-seconds must be between 1 and 3600 (1 hour)');
+    
+    if (isNaN(timeWindow) || timeWindow < 1) {
+      throw new Error('--time-in-seconds must be at least 1 second');
+    }
+    
+    // Only apply time limit for general analysis, no limit for IP search
+    if (!args.ip && timeWindow > 3600) {
+      throw new Error('--time-in-seconds must be between 1 and 3600 (1 hour) for general analysis');
     }
 
     // Read input file
@@ -208,8 +222,10 @@ class IPQueryCLI {
     if (timeDiff < 1) {
       throw new Error('Minimum time span is 1 second');
     }
-    if (timeDiff > 3600) {
-      throw new Error('Maximum time span is 1 hour (3600 seconds)');
+    
+    // Only apply time limit for general analysis, no limit for IP search
+    if (!args.ip && timeDiff > 3600) {
+      throw new Error('Maximum time span is 1 hour (3600 seconds) for general analysis');
     }
 
     const timeRange: TimeRange = {
@@ -218,7 +234,12 @@ class IPQueryCLI {
       duration: timeDiff,
     };
 
-    console.log(`Analyzing time range: ${args['time-from']} to ${args['time-to']} (${timeDiff}s)`);
+    if (args.ip) {
+      console.log(`Searching for IP ${args.ip} in time range: ${args['time-from']} to ${args['time-to']} (${timeDiff}s)`);
+    } else {
+      console.log(`Analyzing time range: ${args['time-from']} to ${args['time-to']} (${timeDiff}s)`);
+    }
+    
     const results = await this.analyzer!.analyzeTimeRange(timeRange);
     await this.outputResults(results);
   }
@@ -403,6 +424,8 @@ OPTIONS:
     --time-in-seconds <NUM>    Time window in seconds (1-3600, required with --file-in)
     --time-from <TIME>         Start time for analysis
     --time-to <TIME>           End time for analysis
+    --ip <IP_ADDRESS>          Search for specific IP address in flow logs
+    --output <FILE>            Save results to specified file
     --region <REGION>          AWS region (optional, auto-detects from environment)
     --configure                Setup configuration interactively
     --verbose                  Show detailed analysis progress
@@ -419,6 +442,10 @@ EXAMPLES:
     # Time range mode
     ip-query --time-from "2025-07-26 10:00:00" --time-to "2025-07-26 10:05:00"
     ip-query --time-from 1753490956 --time-to 1753491256 --region us-gov-east-1
+    
+    # Search for specific IP address (no time limit)
+    ip-query --ip 192.168.1.1 --time-from "2025-07-26 10:00:00" --time-to "2025-07-26 10:05:00"
+    ip-query --ip 10.0.0.5 --time-from "2025-08-04T03:30:00" --time-to "2025-08-05T06:00:00" --output results.txt
 
 TIME FORMATS SUPPORTED:
     • YYYY-MM-DD HH:MM:SS
@@ -447,7 +474,8 @@ CONFIGURATION:
 
 CONSTRAINTS:
     • Minimum time span: 1 second
-    • Maximum time span: 1 hour (3600 seconds)
+    • Maximum time span: 1 hour (3600 seconds) for general analysis
+    • No time limit when using --ip search
 `);
   }
 

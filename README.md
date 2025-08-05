@@ -13,6 +13,9 @@ Useful if you suspect you are being scanned and want to identify if it's a bad a
 ⚡ **Flexible Time Parsing**: Support multiple timestamp formats and time ranges  
 🖥️ **CLI Interface**: Streamlined command-line interface with two distinct modes  
 🌍 **Dual Environment**: Supports both AWS Commercial and GovCloud seamlessly  
+🎯 **IP Address Search**: Filter flow logs for specific IP addresses (optimized output, no threat intelligence)  
+📊 **AWS-Style CSV Export**: Automatic CSV export in CloudWatch Logs Insights format for IP searches  
+📄 **File Output**: Save detailed results to specified files  
 
 ## Quick Start
 
@@ -33,6 +36,12 @@ ip-query --file-in data.csv --time-in-seconds 5 --region us-gov-east-1
 
 # Show detailed analysis progress
 ip-query --verbose --time-from "2025-01-01 12:00:00" --time-to "2025-01-01 12:00:10"
+
+# Search for specific IP address (auto-exports to CSV)
+ip-query --ip 192.168.1.1 --time-from "2025-01-01 12:00:00" --time-to "2025-01-01 12:00:10"
+
+# Save general analysis results to file
+ip-query --time-from "2025-01-01 12:00:00" --time-to "2025-01-01 12:00:10" --output results.txt
 ```
 
 > 📝 **Note**: See [Supported Time Formats](#supported-time-formats) for complete list of accepted timestamp formats including ISO 8601 with microseconds, Unix timestamps, and various date-time formats.
@@ -70,9 +79,11 @@ ip-query --time-from <TIME> --time-to <TIME> [OPTIONS]
 | Option | Description |
 |--------|-------------|
 | `--file-in <FILE>` | Input file containing timestamps (required for file mode) |
-| `--time-in-seconds <NUM>` | Time window in seconds 1-3600 (required with --file-in) |
+| `--time-in-seconds <NUM>` | Time window in seconds 1-3600 (no limit with --ip) |
 | `--time-from <TIME>` | Start time for analysis (required for time range mode) |
 | `--time-to <TIME>` | End time for analysis (required for time range mode) |
+| `--ip <IP_ADDRESS>` | Search for specific IP address in flow logs |
+| `--output <FILE>` | Save detailed results to specified file |
 | `--region <REGION>` | AWS region (optional, auto-detects from environment) |
 | `--configure` | Setup configuration interactively |
 | `--verbose` | Show detailed analysis progress |
@@ -150,6 +161,13 @@ ip-query --time-from "2025-01-01T12:00:00Z" --time-to "2025-01-01T12:01:00Z"
 
 # Show detailed progress with verbose mode
 ip-query --verbose --time-from "2025-07-26T00:49:16.2146161Z" --time-to "2025-07-26T00:49:26.2146161Z"
+
+# Search for specific IP addresses (no time limit, auto CSV export)
+ip-query --ip 10.0.1.100 --time-from "2025-01-15 09:00:00" --time-to "2025-01-15 09:05:00"
+ip-query --ip 192.168.1.50 --time-from "2025-08-04T03:30:00" --time-to "2025-08-05T06:00:00"
+
+# Combine IP search with additional custom output file
+ip-query --ip 172.16.0.10 --time-from "2025-01-15 00:00:00" --time-to "2025-01-17 00:00:00" --output detailed_analysis.txt --verbose
 ```
 
 ## Input Formats
@@ -246,6 +264,80 @@ ip-query --file-in data.csv --time-in-seconds 5
 - Fractional seconds of any precision are supported (milliseconds, microseconds, nanoseconds)
 
 For comprehensive examples and detailed format specifications, see [TIME_FORMATS.md](TIME_FORMATS.md).
+
+## IP Address Search Feature
+
+The tool supports filtering VPC Flow Logs for specific IP addresses using the `--ip` parameter:
+
+### Usage
+```bash
+# Search for a specific IP in flow logs (automatically exports CSV)
+ip-query --ip 192.168.1.100 --time-from "2025-01-15 09:00:00" --time-to "2025-01-15 09:05:00"
+# Creates: ip-search-192-168-1-100-2025-01-15T14-05-30.csv
+
+# Search with extended time range (no limit for IP search)
+ip-query --ip 10.0.1.50 --time-from "2025-08-04T03:30:00" --time-to "2025-08-05T06:00:00"
+# Creates: ip-search-10-0-1-50-2025-08-04T08-30-45.csv
+
+# Combine with verbose output for detailed analysis (multi-day search)
+ip-query --ip 172.59.123.152 --time-from "2025-01-15 00:00:00" --time-to "2025-01-18 00:00:00" --verbose
+# Creates: ip-search-172-59-123-152-2025-01-15T05-00-12.csv
+```
+
+### How It Works
+- When `--ip` is specified, the tool filters VPC Flow Log records to only include those where the IP appears as either source (`srcaddr`) or destination (`dstaddr`)
+- **No Time Limit**: IP searches have no time constraints (vs 1 hour limit for general analysis)
+- **Server-Side Filtering**: Uses CloudWatch Logs Insights filtering for maximum efficiency
+- **Unlimited Results**: Automatic pagination handles any number of matching records
+- **Optimized Output**: Skips threat intelligence analysis and focuses on flow log data only
+- **Direct Results**: Displays matching flow log records in CSV format for easy analysis
+- Output shows both the filtered record count and the total records found for comparison
+
+### Output for IP Searches
+**Console Output:**
+- Search summary with target IP and time range
+- Direct display of matching flow log records in CSV format
+- Automatic pagination progress for large time ranges (24+ hours)
+- No threat intelligence analysis (for performance with large result sets)
+
+**Automatic CSV Export:**
+- Results automatically saved to `ip-search-{IP}-{timestamp}.csv`
+- Uses AWS CloudWatch Logs Insights CSV format with all VPC Flow Log fields:
+  - `@timestamp`, `@message`, `version`, `account-id`, `interface-id`
+  - `srcaddr`, `dstaddr`, `srcport`, `dstport`, `protocol`
+  - `packets`, `bytes`, `windowstart`, `windowend`, `action`, `flowlogstatus`
+- Compatible with Excel, Google Sheets, and other CSV viewers
+- Same format as AWS Console "Export results" feature
+
+**Optional File Output (when using `--output`):**
+- Additional detailed analysis file with custom format
+- Time range breakdown and filtering information
+
+### Large-Scale Query Support
+**Automatic Pagination:**
+- Time ranges > 1 hour are automatically broken into 1-hour chunks
+- Each chunk processes up to 10,000 records with server-side filtering
+- Supports unlimited total results across all chunks
+- Progress tracking shows chunk processing in verbose mode
+
+**Example for 24+ Hour Queries:**
+```bash
+# This will process 24 x 1-hour chunks automatically
+ip-query --ip 172.59.120.94 --time-from "2025-08-04T00:00:00" --time-to "2025-08-05T00:00:00" --verbose
+
+# Console shows:
+# • Large time range detected (86400s)
+# • Breaking into 24 chunks of 3600s each
+# • Processing chunk 1/24: 2025-08-04T00:00:00Z to 2025-08-04T01:00:00Z
+# • Chunk 1 returned 425 records (total so far: 425)
+# ... [continues for all chunks]
+# • Pagination complete: 8,247 total records across 24 chunks
+```
+
+### Supported IP Types
+- IPv4 addresses: `192.168.1.1`, `10.0.0.1`, `172.16.0.1`
+- Public and private IP addresses
+- Any valid IP format found in VPC Flow Logs
 
 ## Requirements
 
