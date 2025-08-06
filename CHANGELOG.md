@@ -1,5 +1,12 @@
 # Changelog
 
+## [v1.0.3] - 2025-08-06
+
+### Changes
+- Release v1.0.3
+- Automated release from main branch
+
+
 ## [v1.0.2] - 2025-07-28
 
 ### Changes
